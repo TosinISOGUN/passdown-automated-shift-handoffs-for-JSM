@@ -52,6 +52,11 @@ Thumbs.db
 /.forge/
 .wrangler/
 
+# The marketing site is its own repo (passdown-privacy), deployed separately.
+# Keep it out of the app repo entirely — a nested .git here previously showed
+# up as an orphaned gitlink with no .gitmodules, which is confusing on GitHub.
+/site/
+
 # Internal / sensitive working docs — hold strategy, security posture reasoning,
 # and decision history. Keep local, do not publish (private repos can later be
 # opened or shared). Same pattern as Recap/Field Hygiene's own app repos.
