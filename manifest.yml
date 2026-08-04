@@ -1,0 +1,48 @@
+modules:
+  jira:issuePanel:
+    - key: passdown-ticket-summary-panel
+      resource: main
+      resolver:
+        function: resolver
+      render: native
+      title: Passdown
+      icon: passdown-app-icon/passdown-icon.png
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: check-shift-boundaries
+      handler: index.checkShiftBoundaries
+  scheduledTrigger:
+    - key: shift-boundary-check
+      function: check-shift-boundaries
+      interval: fiveMinute
+  llm:
+    - key: passdown-llm
+      model:
+        - claude
+resources:
+  - key: main
+    path: src/frontend/index.jsx
+  - key: passdown-app-icon
+    path: static
+remotes:
+  - key: passdown-sched-remote
+    baseUrl: https://passdown-schedule-remote.isogunlabs.workers.dev
+    operations:
+      - compute
+    auth:
+      appSystemToken:
+        enabled: true
+permissions:
+  scopes:
+    read:jira-work: {}
+    write:jira-work: {}
+    read:ops-config:jira-service-management:
+      allowImpersonation: true
+    storage:app: {}
+app:
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/e97ac685-6cc2-40ff-a753-a8359847057a

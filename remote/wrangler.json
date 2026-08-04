@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "passdown-schedule-remote",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "FORGE_APP_ARI": "ari:cloud:ecosystem::app/e97ac685-6cc2-40ff-a753-a8359847057a",
+    "IMPERSONATE_ACCOUNT_ID": "712020:cceb64ff-44e0-409e-9a0d-3e45f07e84a4"
+  }
+}
