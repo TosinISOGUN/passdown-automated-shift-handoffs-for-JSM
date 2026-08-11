@@ -15,6 +15,7 @@ const STATE = {
   DONE: 'done',
   EMPTY: 'empty',
   ERROR: 'error',
+  UNLICENSED: 'unlicensed',
 };
 
 const App = () => {
@@ -26,6 +27,10 @@ const App = () => {
     setState(STATE.LOADING);
     try {
       const result = await invoke('summarizeTicket');
+      if (result.unlicensed) {
+        setState(STATE.UNLICENSED);
+        return;
+      }
       if (result.empty) {
         setState(STATE.EMPTY);
         return;
@@ -69,6 +74,15 @@ const App = () => {
             header="Nothing to summarize yet"
             description="This ticket has no comments or status changes yet."
           />
+        )}
+
+        {state === STATE.UNLICENSED && (
+          <SectionMessage appearance="warning" title="A subscription is required">
+            <Text>
+              This installation doesn't have an active Passdown subscription. Ask your Jira
+              admin to start a trial or subscribe from the Atlassian Marketplace.
+            </Text>
+          </SectionMessage>
         )}
 
         {state === STATE.ERROR && (

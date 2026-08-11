@@ -1,4 +1,4 @@
-import api, { invokeRemote, route } from '@forge/api';
+import api, { getAppContext, invokeRemote, route } from '@forge/api';
 import { kvs } from '@forge/kvs';
 import { summarizeIssue } from '../lib/summarize';
 
@@ -20,6 +20,17 @@ const REMOTE_KEY = 'passdown-sched-remote';
 // (ticket search, comments, reassignment) is plain Jira REST and still uses
 // asApp() directly, unchanged.
 export async function checkShiftBoundaries({ context } = {}) {
+  // Scheduled triggers don't reliably carry context.license the way a resolver invocation
+  // does (confirmed against current Forge docs/community reports), so licensing is checked
+  // here via the dedicated License REST API instead -- once per run, not once per schedule,
+  // since the API's 1-request-per-5-minutes-per-installation limit lines up exactly with this
+  // trigger's own fiveMinute interval.
+  const licensed = await isInstallationLicensed();
+  if (!licensed) {
+    console.log('Passdown is unlicensed on this installation; skipping shift-boundary check.');
+    return;
+  }
+
   const cloudId = context?.cloudId;
   if (!cloudId) {
     console.error('No cloudId in scheduled trigger context; cannot call the schedule remote.');
@@ -36,6 +47,49 @@ export async function checkShiftBoundaries({ context } = {}) {
       // the others from being checked in the same poll.
       console.error(`Failed checking schedule ${schedule.id}:`, err);
     }
+  }
+}
+
+// Fails open only on a technical failure (network error, non-200) -- a transient hiccup
+// should not silently disable the flagship feature for a run. A successful response is
+// trusted strictly: see the comment below on the exact `active` check.
+//
+// The dev environment has no real Marketplace license, so the License API genuinely (and
+// correctly) reports it as unlicensed -- confirmed empirically 2026-08-04, not assumed. That
+// would permanently block testing the flagship feature on the dev site, so development is
+// exempted from the check entirely (owner-approved 2026-08-04). Production and staging are
+// unaffected -- this only widens what development allows, never narrows what production
+// enforces.
+//
+// The scheduled-trigger invocation context has no environmentType field at all (confirmed
+// empirically 2026-08-04 -- it's only {cloudId, moduleKey, userAccess}, unlike a
+// resolver/web-trigger's context). getAppContext() is the documented, independently-callable
+// way to get environmentType from any backend function regardless of invocation context shape.
+async function isInstallationLicensed() {
+  if (getAppContext().environmentType === 'DEVELOPMENT') {
+    return true;
+  }
+
+  try {
+    const response = await api.asApp().requestAtlassian(route`/forge/app/v1/license`, {
+      headers: { 'Content-Type': 'application/json' },
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      console.error(`License check failed (${response.status}); failing open for this run.`);
+      return true;
+    }
+
+    const body = await response.json();
+    // A successful, well-formed response is trusted strictly: only an explicit `active: true`
+    // counts as licensed, matching the resolver's isUnlicensed() convention. Only a technical
+    // failure (caught above, or thrown below) fails open -- an ambiguous or missing shape in
+    // an otherwise-successful response is treated as unlicensed, not as "unknown, allow it".
+    return body?.results?.[0]?.data?.active === true;
+  } catch (err) {
+    console.error('License check errored; failing open for this run:', err);
+    return true;
   }
 }
 
